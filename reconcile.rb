@@ -60,11 +60,21 @@ def find_common_commit(downstream_dir, upstream_dir, rev_list_down, rev_list_up)
     end
   #end
   smallest = output_size.keys.sort.first
-  puts smallest
-  puts output_size[smallest].size
-  puts output_size[smallest].values.first.join("\n")
-  raise "Could not find any common anscesto"
-  #puts output_size[output_size.keys.sort.first].inspect
+  puts "the least number of difference found is: #{smallest}"
+  puts "we found #{output_size[smallest].size} one repos of this diff size"
+  puts "The output from the first one of this size is:\n#{output_size[smallest].values.first.join("\n")}"
+  refs=output_size[smallest].keys.first.split('_')
+  puts "For refs: #{refs}"
+  checkout(downstream_dir, refs[0])
+  checkout(upstream_dir, refs[1])
+  if output_size[smallest].size == 1
+    puts 'Do you want to proceed with rebasing this result?(Yes or No)'
+    result = gets
+    if result.chomp == 'Yes'
+      return refs
+    end
+  end
+  raise "Could not find any common anscestor"
 end
 
 def rebase(dir, downstream_commits, upstream_ref)
@@ -79,14 +89,18 @@ puts downstream_commits.inspect
   end
 end
 
-def fix_repos(downstream, upstream)
+def get_dir_name(downstream, upstream)
   name = downstream.split('-').last
   raise("repo names do not match :( #{downstream}|#{upstream}") if name != upstream.split('-').last
-  time = "#{name}_#{Time.now.strftime("%Y%m%d%H%M%S")}"
-  Dir.mkdir(time)
+  pwd = File.join(Dir.pwd, name)
+end
 
-  pwd = File.join(Dir.pwd, time)
-
+def fix_repos(downstream, upstream)
+  pwd=get_dir_name(downstream, upstream)
+  if File.exists?(pwd)
+    raise "Please manually clean up old directories: #{name}"
+  end
+  Dir.mkdir(pwd)
   puts "Working out of directory #{pwd}"
 
   upstream_dir=File.join(pwd, 'upstream')
@@ -97,8 +111,8 @@ def fix_repos(downstream, upstream)
   clone(upstream_dir, "git://github.com/#{upstream}")
 
   # add all remotes to repo
-  add_remote(upstream_dir, "git://github.com/#{downstream}", 'downstream')
-  add_remote(upstream_dir, "git@github.com:#{downstream}", 'upstream')
+  add_remote(upstream_dir, "git@github.com:#{downstream}", 'downstream')
+  add_remote(upstream_dir, "git@github.com:#{upstream}", 'upstream')
 
   # start from origin/master
   checkout(downstream_dir, 'origin/master')
@@ -114,67 +128,45 @@ def fix_repos(downstream, upstream)
   rebase(upstream_dir, rev_list_down[0..(rev_list_down.index(ref_results[0])-1)].reverse, ref_results[1])
 end
 
+def push(downstream, upstream)
+  name=get_dir_name(downstream, upstream)
+  upstream_dir=File.join(name, 'upstream')
+  Dir.chdir(upstream_dir) do
+    puts `git checkout -b push`
+    puts `git push upstream HEAD:svn_git_port`
+  end
+end
 
-# can you even create repos for things that we are not forking?
 
-
-# I need to sort this out for the following repos:
-#
-# 1. account
-#  This does not have a repo. Are we afraid of publishing the ssh pub keys?
-#  I created jiocloud/puppet-acccount
-# 2. add_user_to_group
-#  I created jiocloud/puppet-add_user_to_group
-# 3. apache -> ../module_source/puppetlabs-apache-1.1.1
-#  This has no downstream repo. Is that because it only has an upstream?
-# 4. apt -> ../module_source/puppetlabs-apt-1.4.2
-# 5. base_packages
-# 6. ceph -> ../module_source/puppet-ceph
-#    This actually has a module, but I have no idea who upstream is it looks like it came from enovance
-# 7. cinder -> ../module_source/puppet-cinder
-# 8. concat -> ../module_source/puppetlabs-concat-1.1.0-rc1
-# 9. contrail -> ../module_source/contrail-puppet/contrail
-# 10. cron
-# 11. glance -> ../module_source/puppet-glance
-# 12. horizon -> ../module_source/puppet-horizon
-# 13. inifile -> ../module_source/puppetlabs-inifile
-# 14. jiocloud
-# 15 ji ocloud_registration
-# 16 keystone -> ../module_source/puppet-keystone
-# 17 kvm
-# 18 logrotate
-# 19 lvm
-# 20 memcached -> ../module_source/saz-memcached-2.2.4
-# 21 mysql -> ../module_source/puppetlabs-mysql-2.2.3
-# 22 network -> ../module_source/attachmentgenie-network-1.0.1
-# 23 neutron -> ../module_source/puppet-neutron
-# 24 nova -> ../module_source/puppet-nova
-# 25 nscd
-# 26 ntp -> ../module_source/puppetlabs-ntp-3.0.1
-# 27 openstack
-# 28 python-django-horizon
-# 29 rabbitmq -> ../module_source/puppetlabs-rabbitmq-4.0.0
-# 30 resolver
-# 31 sethostname
-# 32 ssh -> ../module_source/puppet-ssh
-# 33 staging -> ../module_source/nanliu-staging-0.4.1
-# 34 stdlib -> ../module_source/puppetlabs-stdlib-4.1.0
-# 35 sudo -> ../module_source/puppet-sudo/
-# 36 sysctl -> ../module_source/puppet-sysctl
-# 37 tfile
-# 38 timezone
-# 39 zeromq
-# 40zookeeper -> ../module_source/viirya-zookeeper-0.0.7
-#
-# I will assume that thigns without symlinks are not foked from an upstream, I expect these to exist as puppet-* in jiocloud
-#
-#
-#
+#action = 'push'
+action = 'reconcile'
 
 repos = {
-  'jiocloud/jiocloud-nova' => 'jiocloud/puppet-nova',
+
+# these ones had no issues
+#  'jiocloud/jiocloud-nova' => 'jiocloud/puppet-nova',
+#  'jiocloud/jiocloud-ceph' => 'jiocloud/puppet-ceph',
+#  'jiocloud/jiocloud-cinder' => 'jiocloud/puppet-cinder',
+#  'jiocloud/jiocloud-glance' => 'jiocloud/puppet-glance',
+#  'jiocloud/jiocloud-horizon' => 'jiocloud/puppet-horizon',
+   'jiocloud/jiocloud-neutron' => 'jiocloud/puppet-neutron',
+# these ones had issues
+#  'jiocloud/jiocloud-keystone' => 'jiocloud/puppet-keystone',
+#  'jiocloud/jiocloud-network' => 'jiocloud/attachmentgenie-network',
+
 }
 
 repos.each do |x, y|
-  fix_repos(x, y)
+  if action == 'reconcile'
+    fix_repos(x, y)
+    puts 'Do you want to push these changes to svn_git_port branch?(Yes or No)'
+    resp = gets
+    if resp.chomp == 'Yes'
+      push(x, y)
+    end
+  elsif action == 'push'
+    push(x, y)
+  else
+    raise "Unexpected action"
+  end
 end
