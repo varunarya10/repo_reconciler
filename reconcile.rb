@@ -60,6 +60,7 @@ def find_common_commit(downstream_dir, upstream_dir, rev_list_down, rev_list_up)
       checkout(upstream_dir, ref2)
       # run the recursive diff
       out = system_cmd("diff -r --exclude=.svn --exclude=.git #{upstream_dir} #{downstream_dir}")
+      #puts out
       # if return code is true (ie: they match!)
       if out[1]
         puts "Upstream #{ref2} matches downstream #{ref}"
@@ -121,7 +122,7 @@ def fix_repos(downstream, upstream)
   # get the module name ie: nova
   pwd=get_dir_name(downstream, upstream)
   if File.exists?(pwd)
-    raise "Please manually clean up old directories: #{name}"
+    raise "Please manually clean up old directories: #{pwd}"
   end
   Dir.mkdir(pwd)
   puts "Working out of directory #{pwd}"
@@ -162,12 +163,12 @@ end
 # simple method for pushing to svn_git_port branch
 # of selected upstream repo
 #
-def push(downstream, upstream)
+def push(downstream, upstream, remote_branch='svn_git_port')
   name=get_dir_name(downstream, upstream)
   upstream_dir=File.join(name, 'upstream')
   Dir.chdir(upstream_dir) do
     puts `git checkout -b push`
-    puts `git push upstream HEAD:svn_git_port`
+    puts `git push upstream HEAD:#{remote_branch}`
   end
 end
 
@@ -178,6 +179,8 @@ end
 
 #action = 'push'
 action = 'reconcile'
+
+remote_branch='svn_to_git_2'
 
 #
 # Right now, you just hard-code the hash of repos inline in the file
@@ -214,10 +217,22 @@ repos = {
 #  'jiocloud/jiocloud-cinder' => 'jiocloud/puppet-cinder',
 #  'jiocloud/jiocloud-glance' => 'jiocloud/puppet-glance',
 #  'jiocloud/jiocloud-horizon' => 'jiocloud/puppet-horizon',
-   'jiocloud/jiocloud-neutron' => 'jiocloud/puppet-neutron',
+#  'jiocloud/jiocloud-neutron' => 'jiocloud/puppet-neutron',
+#   'jiocloud/jiocloud-apache' => 'jiocloud/puppetlabs-apache',
+#   'jiocloud/jiocloud-apt' => 'jiocloud/puppetlabs-apt',
+#   'jiocloud/jiocloud-concat' => 'jiocloud/puppetlabs-concat',
+#   'jiocloud/jiocloud-inifile' => 'jiocloud/puppetlabs-inifile',
+#   'jiocloud/jiocloud-logrotate' => 'jiocloud/puppet-logrotate',
+#   'jiocloud/jiocloud-zookeeper' => 'jiocloud/puppet-zookeeper',
+#   'jiocloud/jiocloud-timezone' => 'jiocloud/puppet-timezone',
+#   'jiocloud/jiocloud-sysctl' => 'jiocloud/puppet-sysctl',
+#   'jiocloud/jiocloud-sudo' => 'jiocloud/puppet-sudo',
+#   'jiocloud/jiocloud-ssh' => 'jiocloud/puppet-ssh',
+#    'jiocloud/jiocloud-memcached' => 'jiocloud/puppet-memcached',
 # these ones had issues
 #  'jiocloud/jiocloud-keystone' => 'jiocloud/puppet-keystone',
-#  'jiocloud/jiocloud-network' => 'jiocloud/attachmentgenie-network',
+  'jiocloud/jiocloud-network' => 'jiocloud/attachmentgenie-network',
+#   'jiocloud/jiocloud-lvm' => 'jiocloud/puppetlabs-lvm',
 
 }
 
@@ -229,10 +244,10 @@ repos.each do |x, y|
     resp = gets
     if resp.chomp == 'Yes'
       # then push to upstream if the users wants you to
-      push(x, y)
+      push(x, y, remote_branch)
     end
   elsif action == 'push'
-    push(x, y)
+    push(x, y, remote_branch)
   else
     raise "Unexpected action"
   end
