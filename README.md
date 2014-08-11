@@ -224,7 +224,7 @@ this isn't even a valid module or class name. Cannot have dashes in the names.
 
 41 aptmirror 
   
-   non-forked module with jiocloud module (jiocloud/puppet-apt_mirror)
+   non-forked module with jiocloud module (jiocloud/puppet-aptmirror)
     
 
 # todo
